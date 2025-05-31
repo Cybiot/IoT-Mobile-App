@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.navigation.compose.rememberNavController
 import fr.cpe.hello.model.Sensor
 import fr.cpe.hello.model.SensorValues
 import fr.cpe.hello.ui.theme.DarkGradient
@@ -69,6 +70,19 @@ import kotlinx.serialization.encoding.*
 import kotlinx.serialization.json.*
 import kotlin.math.floor
 import fr.cpe.hello.model.LevelState
+
+// Imports pour la navigation
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+
+// Imports pour Compose
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
     private val appId = 254
@@ -91,81 +105,175 @@ class MainActivity : ComponentActivity() {
 
         startUdpReceiver{}
 
-
         enableEdgeToEdge()
         setContent {
             MonHelloWorldTheme {
+                // Créer le NavController
+                val navController = rememberNavController()
+
                 Scaffold(
-                    modifier = Modifier
-                        .fillMaxSize(),
+                    modifier = Modifier.fillMaxSize(),
                     contentWindowInsets = WindowInsets.safeDrawing
                 ) { innerPadding ->
-                    Column(
-                        modifier = Modifier
-                            .padding(innerPadding)
-                            .padding(WindowInsets.safeDrawing.asPaddingValues()), // safe area
-                            horizontalAlignment = Alignment.CenterHorizontally
+                    NavHost(
+                        navController = navController,
+                        startDestination = SensorAppScreen.HOME.name,
+                        modifier = Modifier.padding(innerPadding)
                     ) {
-                        TextField(
-                            value = ipAddress,
-                            onValueChange = { ipAddress = it },
-                            label = { Text("Entrez l'addresse du serveur") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Row (
-                            modifier = Modifier
-                                .padding(16.dp)
-                        ){
-                            Button(
-                                onClick = { sendMessage() },
-                                modifier = Modifier.weight(0.4f)
-                            ) {
-                                Text("Demander une valeur")
-                            }
-                            Spacer(modifier = Modifier.weight(0.1f))
-                            //Spacer(modifier = Modifier.width(8.dp))
-                            Button(
-                                onClick = { sendUdpMessage("getListOrder()") },
-//                                onClick = {reorderListManually(listOf("Température", "Pression", "UV", "Humidité", "Lumière")) },
-                                modifier = Modifier.weight(0.4f)
-                            ) {
-                                Text("Envoyer l'ordre d'affichage")
-                            }
-                        }
-
-                        MyList(
-                            items = myListItems,
-                            onMove = { newList ->
-                                for(i in 0..4){
-                                    myListItems.set(i, newList.get(i))
+                        // Page Home
+                        composable(SensorAppScreen.HOME.name) {
+                            HomeScreen(
+                                navController = navController,
+                                ipAddress = ipAddress,
+                                onIpAddressChange = { ipAddress = it },
+                                myListItems = myListItems,
+                                onSendMessage = { sendMessage() },
+                                onSendOrder = { sendUdpMessage("getListOrder()") },
+                                onMove = { newList ->
+                                    for(i in 0..4){
+                                        myListItems.set(i, newList.get(i))
+                                    }
+                                    setSensorOrder(myListItems)
+                                    sendSensorOrderMessage()
                                 }
-                                setSensorOrder(myListItems)
-                                sendSensorOrderMessage()
-                                // Envoyer un SETSENSORORDER de la liste
-                            }
-                        )
-
-                        LevelScreen( LevelState(
-                            value = "25°C",
-                            maxValue = "37°C",
-                            arcValue = 0.13f,
-                        )
-                        ){
-
+                            )
                         }
 
+                        // Page Detail
+                        composable(SensorAppScreen.DETAIL.name) {
+                            DetailScreen(
+                                navController = navController
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
+    // Composable pour la page Home
+    @Composable
+    private fun HomeScreen(
+        navController: NavController,
+        ipAddress: String,
+        onIpAddressChange: (String) -> Unit,
+        myListItems: List<SensorOrderList>,
+        onSendMessage: () -> Unit,
+        onSendOrder: () -> Unit,
+        onMove: (List<SensorOrderList>) -> Unit
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(WindowInsets.safeDrawing.asPaddingValues()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Bouton de navigation vers Detail
+            Button(
+                onClick = {
+                    navController.navigate(SensorAppScreen.DETAIL.name)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text("Aller aux détails")
+            }
 
+            TextField(
+                value = ipAddress,
+                onValueChange = onIpAddressChange,
+                label = { Text("Entrez l'addresse du serveur") },
+                modifier = Modifier.fillMaxWidth()
+            )
 
+            Row (
+                modifier = Modifier.padding(16.dp)
+            ){
+                Button(
+                    onClick = onSendMessage,
+                    modifier = Modifier.weight(0.4f)
+                ) {
+                    Text("Demander une valeur")
+                }
+                Spacer(modifier = Modifier.weight(0.1f))
+                Button(
+                    onClick = onSendOrder,
+                    modifier = Modifier.weight(0.4f)
+                ) {
+                    Text("Envoyer l'ordre d'affichage")
+                }
+            }
 
+            MyList(
+                items = myListItems,
+                onMove = onMove
+            )
+
+            LevelScreen( LevelState(
+                value = "25°C",
+                maxValue = "37°C",
+                arcValue = 0.13f,
+            )) {
+
+            }
+        }
+    }
+
+    // Composable pour la page Detail
+    @Composable
+    private fun DetailScreen(
+        navController: NavController
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "Page des Détails",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
+            Text(
+                text = "Ici vous pouvez afficher des informations détaillées sur les capteurs.",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
+            // Bouton de retour à Home
+            Button(
+                onClick = {
+                    navController.navigate(SensorAppScreen.HOME.name) {
+                        // Optionnel : vider la pile de navigation pour éviter l'accumulation
+                        popUpTo(SensorAppScreen.HOME.name) {
+                            inclusive = true
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Retour à l'accueil")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Bouton de retour avec popBackStack (alternative)
+            Button(
+                onClick = {
+                    navController.popBackStack()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Retour (pop)")
+            }
+        }
+    }
+
+    // Vos fonctions existantes restent inchangées
     private fun structureSensorOrderMessage(sensorOrder : String): String{
-
-
         return ""
     }
 
@@ -181,11 +289,9 @@ class MainActivity : ComponentActivity() {
             }
         }
         Log.d("ORDER", newOrder)
-
         sensorOrder = newOrder
     }
 
-    // Fonction qui envoie le message en UDP sur un thread IO
     private fun sendUdpMessage(message: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -206,36 +312,34 @@ class MainActivity : ComponentActivity() {
         port: Int = 10000,
         onMessageReceived: (String) -> Unit
     ) {
-            var socket = UDPMessageSocket(InetAddress.getByName(ipAddress), 10000)
-            udpMessageSocket = socket
+        var socket = UDPMessageSocket(InetAddress.getByName(ipAddress), 10000)
+        udpMessageSocket = socket
 
-            socket.addListener(object: UDPMessageSocketListener {
-                override fun onMessage(message: String) {
-                    // MEssage qui arrive du serveur
-                    Log.d("UDP_RECEIVER", message)
-                    testCustomJson(message)
-                }
-
-            })
-        }
-
-
+        socket.addListener(object: UDPMessageSocketListener {
+            override fun onMessage(message: String) {
+                Log.d("UDP_RECEIVER", message)
+                testCustomJson(message)
+            }
+        })
+    }
 
     private fun testCustomJson(message: String){
-//        val jsonString = Json.encodeToString(user)
         val decode = Json.decodeFromString<SensorValues>(message)
         Log.d("JSON_DECODE", decode.toString())
     }
 
-
     private fun sendSensorOrderMessage(){
-        udpMessageSocket.sendMessage(sensorOrder) // Envoyer un message
+        udpMessageSocket.sendMessage(sensorOrder)
     }
 
     private fun sendMessage(){
-        udpMessageSocket.sendMessage("getValues()") // Envoyer un message
+        udpMessageSocket.sendMessage("getValues()")
     }
 
     data class SensorOrderList(val name: String)
-}
 
+    enum class SensorAppScreen() {
+        HOME,
+        DETAIL
+    }
+}
