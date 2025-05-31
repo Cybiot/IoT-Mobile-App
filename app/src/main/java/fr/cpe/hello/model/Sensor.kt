@@ -3,9 +3,10 @@ package fr.cpe.hello.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Sensor(val id: Int,
-                val crouscam_id: Int,
-                val sensor_configuration: String,
-                val sensor_name: String,
-                val last_seen: Double
+data class Sensor(
+    var id: Int,
+    var crouscam_id: Int,
+    var sensor_configuration: String,
+    var sensor_name: String,
+    var last_seen: Double
 )

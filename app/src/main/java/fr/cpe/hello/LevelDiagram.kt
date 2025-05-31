@@ -88,13 +88,14 @@ private fun CircularLevelIndicator(value: Float, angle: Float){
             .padding(5.dp)
     ) {
 //        drawLines(value, angle)
-        drawArcs(1f, angle, null, Color(0xFFFFFFFF), DarkGradient)
+//        Color(0xFFFFFFFF)
+        drawArcs(1f, angle, null, null, DarkGradient)
         drawArcs(value, angle, Green200, Green500, GreenGradient)
 
     }
 }
 
-fun DrawScope.drawArcs(progress: Float, maxValue: Float, blurColor: Color?, borderColor: Color, gradient: Brush) {
+fun DrawScope.drawArcs(progress: Float, maxValue: Float, blurColor: Color?, borderColor: Color?, gradient: Brush) {
     val startAngle = 270 - maxValue / 2
     val sweepAngle = maxValue * progress
 
@@ -118,15 +119,17 @@ fun DrawScope.drawArcs(progress: Float, maxValue: Float, blurColor: Color?, bord
     }
 
     fun drawStroke() {
-        drawArc(
-            color = borderColor,
-            startAngle = startAngle,
-            sweepAngle = sweepAngle,
-            useCenter = false,
-            topLeft = topLeft,
-            size = size,
-            style = Stroke(width = 86f, cap = StrokeCap.Round)
-        )
+        if (borderColor != null) {
+            drawArc(
+                color = borderColor,
+                startAngle = startAngle,
+                sweepAngle = sweepAngle,
+                useCenter = false,
+                topLeft = topLeft,
+                size = size,
+                style = Stroke(width = 86f, cap = StrokeCap.Round)
+            )
+        }
     }
 
     fun drawGradient() {
