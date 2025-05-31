@@ -1,8 +1,10 @@
 package fr.cpe.hello.model
 
 data class LevelState(
-    val value: String = "",
-    val maxValue: String = "-",
-    val arcValue: Float = 0f,
-    val inProgress: Boolean = false
+    var unitName: String = "Température",
+    var unit: String = "°C",
+    var value: Float = 22.3f,
+    var maxValue: Float = 40f,
+    var arcValue: Float = 0f,
+    var inProgress: Boolean = false
 )

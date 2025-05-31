@@ -9,7 +9,13 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -18,27 +24,46 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import fr.cpe.hello.ui.theme.DarkGradient
 import fr.cpe.hello.ui.theme.Green200
 import fr.cpe.hello.ui.theme.Green500
 import fr.cpe.hello.ui.theme.GreenGradient
 import fr.cpe.hello.ui.theme.LightColor
 import kotlin.math.floor
 import fr.cpe.hello.model.LevelState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import fr.cpe.hello.ui.theme.DarkGradient
+
+var arcValue by mutableFloatStateOf(0f)
+
+fun updateArcValue(value: Float, maxValue: Float){
+    var newValue = value / maxValue
+    if(newValue > 1f)
+        newValue = 1f
+
+    arcValue = newValue
+}
 
 @Composable
 fun LevelScreen(state: LevelState, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkGradient),
-        verticalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier,
+//            .fillMaxWidth(),
+//            .padding(bottom = 20.dp),
+//            verticalArrangement = Arrangement.SpaceBetween,
+
     ) {
+
         LevelIndicator(state = state, onClick = onClick)
-//            AdditionalInfo(state.ping, state.maxSpeed)
-//            NavigationView()
+        Text(
+            text = "${state.unitName}\n${state.value}${state.unit} ",
+            textAlign = TextAlign.Center,
+//            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.width(150.dp)
+        )
     }
 }
 
@@ -47,12 +72,10 @@ fun LevelIndicator(state: LevelState, onClick: () -> Unit) {
     Box(
         contentAlignment = Alignment.BottomCenter,
         modifier = Modifier
-            .fillMaxWidth()
+            .width(150.dp)
             .aspectRatio(1f)
     ) {
         CircularLevelIndicator(state.arcValue, 240f)
-//            StartButton(!state.inProgress, onClick)
-//            SpeedValue(state.speed)
     }
 }
 
@@ -62,14 +85,16 @@ private fun CircularLevelIndicator(value: Float, angle: Float){
     Canvas(
         modifier = Modifier
             .fillMaxSize()
-            .padding(40.dp)
+            .padding(5.dp)
     ) {
-        drawLines(value, angle)
-        drawArcs(value, angle)
+//        drawLines(value, angle)
+        drawArcs(1f, angle, null, Color(0xFFFFFFFF), DarkGradient)
+        drawArcs(value, angle, Green200, Green500, GreenGradient)
+
     }
 }
 
-fun DrawScope.drawArcs(progress: Float, maxValue: Float) {
+fun DrawScope.drawArcs(progress: Float, maxValue: Float, blurColor: Color?, borderColor: Color, gradient: Brush) {
     val startAngle = 270 - maxValue / 2
     val sweepAngle = maxValue * progress
 
@@ -78,21 +103,23 @@ fun DrawScope.drawArcs(progress: Float, maxValue: Float) {
 
     fun drawBlur() {
         for (i in 0..20) {
-            drawArc(
-                color = Green200.copy(alpha = i / 900f),
-                startAngle = startAngle,
-                sweepAngle = sweepAngle,
-                useCenter = false,
-                topLeft = topLeft,
-                size = size,
-                style = Stroke(width = 80f + (20 - i) * 20, cap = StrokeCap.Round)
-            )
+            if (blurColor != null) {
+                drawArc(
+                    color = blurColor.copy(alpha = i / 900f),
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngle,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = size,
+                    style = Stroke(width = 80f + (20 - i) * 20, cap = StrokeCap.Round)
+                )
+            }
         }
     }
 
     fun drawStroke() {
         drawArc(
-            color = Green500,
+            color = borderColor,
             startAngle = startAngle,
             sweepAngle = sweepAngle,
             useCenter = false,
@@ -104,7 +131,7 @@ fun DrawScope.drawArcs(progress: Float, maxValue: Float) {
 
     fun drawGradient() {
         drawArc(
-            brush = GreenGradient,
+            brush = gradient,
             startAngle = startAngle,
             sweepAngle = sweepAngle,
             useCenter = false,
@@ -127,7 +154,7 @@ fun DrawScope.drawLines(progress: Float, maxValue: Float, numberOfLines: Int = 4
         rotate(i * oneRotation + (180 - maxValue) / 2) {
             drawLine(
                 LightColor,
-                Offset(if (i % 5 == 0) 80f else 30f, size.height / 2),
+                Offset(if (i % 5 == 0) 80f else 0f, size.height / 2),
                 Offset(0f, size.height / 2),
                 8f,
                 StrokeCap.Round

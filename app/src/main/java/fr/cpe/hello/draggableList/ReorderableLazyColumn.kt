@@ -1,4 +1,4 @@
-package fr.cpe.hello
+package fr.cpe.hello.draggableList
 
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
@@ -11,16 +11,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
+import fr.cpe.hello.MainActivity
 
 
 @Composable
-fun MyList(
+fun DraggableList(
     items: List<MainActivity.SensorOrderList>,
     onMove: (List<MainActivity.SensorOrderList>) -> Unit
 ) {
