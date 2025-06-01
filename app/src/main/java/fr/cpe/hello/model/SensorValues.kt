@@ -7,9 +7,9 @@ data class SensorValues(
     var reading_id: Int,
     var sensor_crouscam_id: Int,
     var timestamp: String,
-    var temperature: Double,
-    var humidity: Double,
-    var uv : Double,
-    var luminosity : Double,
-    var pressure : Double
+    var temperature: Float,
+    var humidity: Float,
+    var uv : Float,
+    var luminosity : Float,
+    var pressure : Float
 )

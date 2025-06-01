@@ -55,9 +55,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import fr.cpe.hello.draggableList.DraggableList
+import fr.cpe.hello.model.Sensor
 import fr.cpe.hello.ui.theme.Yellow500
 
 class MainActivity : ComponentActivity() {
@@ -77,13 +81,31 @@ class MainActivity : ComponentActivity() {
             reading_id = 0,
             sensor_crouscam_id = 0,
             timestamp = "",
-            temperature = 0.0,
-            humidity = 0.0,
-            uv = 0.0,
-            luminosity = 0.0,
-            pressure = 0.0
+            temperature = 22.3f,
+            humidity = 11.7f,
+            uv = 10.0f,
+            luminosity = 1.7f,
+            pressure = 10.0f
         )
     )
+
+    private var sensorList = mutableStateListOf(
+        Sensor(
+            id = 0,
+            crouscam_id = 0,
+            sensor_configuration = "",
+            sensor_name = "FACB2D3E3BDDA177",
+            last_seen = 0.0
+        ),
+        Sensor(
+            id = 1,
+            crouscam_id = 1,
+            sensor_configuration = "",
+            sensor_name = "A9AB1BD844F3FC8C",
+            last_seen = 0.0
+        ),
+    )
+
     private var myListItems = mutableListOf(
         SensorOrderList("Lumière"),
         SensorOrderList("Température"),
@@ -97,6 +119,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         startUdpReceiver{}
+        getSensorList()
 
         enableEdgeToEdge()
         setContent {
@@ -133,7 +156,12 @@ class MainActivity : ComponentActivity() {
                                 ipAddress = ipAddress,
                                 onIpAddressChange = { ipAddress = it },
                                 onSendMessage = { sendMessage() },
-                                onSendOrder = { sendUdpMessage("getListOrder()") }
+                                onSendOrder = { sendUdpMessage("getListOrder()") },
+                                sensorList = sensorList,
+                                onSensorSelected = { sensorName ->
+                                    currentSensor = sensorName
+                                    Log.d("SENSOR_SELECTED", "Capteur sélectionné: $sensorName")
+                                }
                             )
                         }
 
@@ -262,7 +290,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun updateSensorList(payload: JsonObject) {
+        try {
+            val values = Json.decodeFromJsonElement<List<Sensor>>(payload)
 
+            for(i in 0..values.size - 1){
+                sensorList.set(i, values.get(i))
+            }
+            setSensorOrder(myListItems)
+            sendSensorOrderMessage()
+
+        } catch (e: Exception) {
+            Log.e("JSON_CONVERT", "Erreur lors de la validation: ${e.message}")
+        }
     }
 
 
@@ -326,24 +365,14 @@ class MainActivity : ComponentActivity() {
         onIpAddressChange: (String) -> Unit,
         onSendMessage: () -> Unit,
         onSendOrder: () -> Unit,
+        sensorList: List<Sensor>, // Ajoutez ce paramètre
+        onSensorSelected: (String) -> Unit // Ajoutez ce paramètre pour la sélection
     ) {
         Column(
             modifier = Modifier
                 .padding(WindowInsets.safeDrawing.asPaddingValues()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Bouton de navigation vers Detail
-            Button(
-                onClick = {
-                    navController.navigate(SensorAppScreen.DETAIL.name)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Text("Aller aux détails")
-            }
-
             TextField(
                 value = ipAddress,
                 onValueChange = onIpAddressChange,
@@ -351,50 +380,70 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Row (
-                modifier = Modifier.padding(16.dp)
-            ){
-                Button(
-                    onClick = onSendMessage,
-                    modifier = Modifier.weight(0.4f)
-                ) {
-                    Text("Demander une valeur")
-                }
-                Spacer(modifier = Modifier.weight(0.1f))
-                Button(
-                    onClick = onSendOrder,
-                    modifier = Modifier.weight(0.4f)
-                ) {
-                    Text("Envoyer l'ordre d'affichage")
-                }
-            }
+//            Row (
+//                modifier = Modifier.padding(16.dp)
+//            ){
+//                Button(
+//                    onClick = onSendMessage,
+//                    modifier = Modifier.weight(0.4f)
+//                ) {
+//                    Text("Demander une valeur")
+//                }
+//                Spacer(modifier = Modifier.weight(0.1f))
+//                Button(
+//                    onClick = onSendOrder,
+//                    modifier = Modifier.weight(0.4f)
+//                ) {
+//                    Text("Envoyer l'ordre d'affichage")
+//                }
+//            }
 
-            if(devMode){
-                for(i in 0..1){
-                    var name = if(i==0) "FACB2D3E3BDDA177" else "A9AB1BD844F3FC8C"
+            Spacer(modifier = Modifier.padding(50.dp))
+            // Boutons dynamiques basés sur sensorList
+            if (sensorList.isNotEmpty()) {
+                Text(
+                    "Capteurs disponibles",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                sensorList.forEachIndexed { index, sensor ->
                     Button(
                         onClick = {
-                            currentSensor = name
+                            onSensorSelected(sensor.sensor_name)
                             navController.navigate(SensorAppScreen.DETAIL.name) {
-                                // vider la pile de navigation pour éviter l'accumulation
                                 popUpTo(SensorAppScreen.DETAIL.name) {
                                     inclusive = true
                                 }
                             }
                         },
                         modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (sensor.last_seen > 0) Color.Green else Color.Gray
+                        )
                     ) {
-                        Text("Capteur $name")
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Capteur ${sensor.sensor_name}")
+                            Text(
+                                text = if (sensor.last_seen > 0) "En ligne" else "Hors ligne",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                 }
-            }else{
-                var sensorList = getSensorList()
+            } else {
+                Text(
+                    "Aucun capteur détecté",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(32.dp)
+                )
             }
-
-//            DraggableList(
-//                items = myListItems,
-//                onMove = onMove
-//            )
         }
     }
 

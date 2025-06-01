@@ -9,4 +9,5 @@ data class Sensor(
     var sensor_configuration: String,
     var sensor_name: String,
     var last_seen: Double
-)
+) {
+}
