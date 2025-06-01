@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
             timestamp = "",
             temperature = 22.3f,
             humidity = 11.7f,
-            uv = 10.0f,
+            uv = 2.0f,
             luminosity = 1.7f,
             pressure = 10.0f
         )
@@ -119,7 +119,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         startUdpReceiver{}
-        getSensorList()
+        sendGetSensorList()
+        sendGetSensorValues()
 
         enableEdgeToEdge()
         setContent {
@@ -155,12 +156,10 @@ class MainActivity : ComponentActivity() {
                                 navController = navController,
                                 ipAddress = ipAddress,
                                 onIpAddressChange = { ipAddress = it },
-                                onSendMessage = { sendMessage() },
-                                onSendOrder = { sendUdpMessage("getListOrder()") },
                                 sensorList = sensorList,
-                                onSensorSelected = { sensorName ->
-                                    currentSensor = sensorName
-                                    Log.d("SENSOR_SELECTED", "Capteur sélectionné: $sensorName")
+                                onSensorSelected = { crouscam_id ->
+                                    currentSensor = crouscam_id
+                                    Log.d("SENSOR_SELECTED", "Capteur sélectionné: $crouscam_id")
                                 }
                             )
                         }
@@ -341,13 +340,18 @@ class MainActivity : ComponentActivity() {
         udpMessageSocket.sendMessage(sensorOrder)
     }
 
-    private fun sendMessage(){
-        udpMessageSocket.sendMessage("getValues()")
+//    private fun sendMessage(){
+//        udpMessageSocket.sendMessage("getValues()")
+//    }
+
+    private fun sendGetSensorList() {
+        val s = """{"event":"DATA_SENSORLIST", "payload": {}"""
+        udpMessageSocket.sendMessage(s)
     }
 
-    private fun getSensorList(): String {
-
-        return ""
+    private fun sendGetSensorValues() {
+        val s = """{"event":"DATA_SENSORLIST", "payload": {"crouscam_id": $currentSensor}}"""
+        udpMessageSocket.sendMessage(s)
     }
 
     data class SensorOrderList(val name: String)
@@ -363,8 +367,6 @@ class MainActivity : ComponentActivity() {
         navController: NavController,
         ipAddress: String,
         onIpAddressChange: (String) -> Unit,
-        onSendMessage: () -> Unit,
-        onSendOrder: () -> Unit,
         sensorList: List<Sensor>, // Ajoutez ce paramètre
         onSensorSelected: (String) -> Unit // Ajoutez ce paramètre pour la sélection
     ) {
@@ -379,24 +381,6 @@ class MainActivity : ComponentActivity() {
                 label = { Text("Entrez l'addresse du serveur") },
                 modifier = Modifier.fillMaxWidth()
             )
-
-//            Row (
-//                modifier = Modifier.padding(16.dp)
-//            ){
-//                Button(
-//                    onClick = onSendMessage,
-//                    modifier = Modifier.weight(0.4f)
-//                ) {
-//                    Text("Demander une valeur")
-//                }
-//                Spacer(modifier = Modifier.weight(0.1f))
-//                Button(
-//                    onClick = onSendOrder,
-//                    modifier = Modifier.weight(0.4f)
-//                ) {
-//                    Text("Envoyer l'ordre d'affichage")
-//                }
-//            }
 
             Spacer(modifier = Modifier.padding(50.dp))
             // Boutons dynamiques basés sur sensorList
@@ -447,6 +431,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
     @Composable
     fun DetailScreen(
         navController: NavController
@@ -458,71 +443,92 @@ class MainActivity : ComponentActivity() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Row (
+            Button(
+                onClick = {
+                    // Mise à jour des valeurs du capteur avec de nouvelles données
+                    sensorValues = sensorValues.copy(
+                        temperature = 30.5f,  // Nouvelle température
+                        humidity = 25.3f,     // Nouvelle humidité
+                        uv = 4.2f,           // Nouvelle valeur UV
+                        luminosity = 2.8f,   // Nouvelle luminosité
+                        pressure = 15.6f     // Nouvelle pression
+                    )
+                },
+                modifier = Modifier.padding(bottom = 16.dp)
+            ) {
+                Text("Changer les valeurs")
+            }
+
+            Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-            ){
-                LevelScreen( LevelState(
-                    unitName = "Température",
-                    unit = "°C",
-                    value = 25.7f,
-                    maxValue = 40f,
-                    arcValue = 0.57f,
-                )
+            ) {
+                LevelScreen(
+                    LevelState(
+                        unitName = "Température",
+                        unit = "°C",
+                        value = sensorValues.temperature,
+                        maxValue = 40f,
+                        arcValue = sensorValues.temperature / 40f,
+                    )
                 ) { }
-                LevelScreen( LevelState(
-                    unitName = "Luminosité",
-                    unit = "lux",
-                    value = 3f,
-                    maxValue = 5f,
-                    arcValue = 0.38f,
-                )
+                LevelScreen(
+                    LevelState(
+                        unitName = "Luminosité",
+                        unit = "lux",
+                        value = sensorValues.luminosity,
+                        maxValue = 5f,
+                        arcValue = sensorValues.luminosity / 5f,
+                    )
                 ) { }
             }
-            Row (
+
+            Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
-            ){
-                LevelScreen( LevelState(
-                    unitName = "Humidité",
-                    unit = "g/m3",
-                    value = 11.7f,
-                    maxValue = 40f,
-                    arcValue = 0.42f,
-                )
+            ) {
+                LevelScreen(
+                    LevelState(
+                        unitName = "Humidité",
+                        unit = "g/m³",
+                        value = sensorValues.humidity,
+                        maxValue = 40f,
+                        arcValue = sensorValues.humidity / 40f,
+                    )
                 ) { }
-                LevelScreen( LevelState(
-                    unitName = "Pression",
-                    unit = "Pa",
-                    value = 10f,
-                    maxValue = 20f,
-                    arcValue = 0.76f,
-                )
+                LevelScreen(
+                    LevelState(
+                        unitName = "Pression",
+                        unit = "Pa",
+                        value = sensorValues.pressure,
+                        maxValue = 20f,
+                        arcValue = sensorValues.pressure / 20f,
+                    )
                 ) { }
             }
-            Row (
+
+            Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
-            ){
-                LevelScreen( LevelState(
-                    unitName = "UV",
-                    unit = "mW/cm2",
-                    value = 1.7f,
-                    maxValue = 6f,
-                    arcValue = 0.82f,
-                )
+            ) {
+                LevelScreen(
+                    LevelState(
+                        unitName = "UV",
+                        unit = "mW/cm²",
+                        value = sensorValues.uv,
+                        maxValue = 6f,
+                        arcValue = sensorValues.uv / 6f,
+                    )
                 ) { }
             }
 
-
-            Row (
+            Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-            ){
+            ) {
                 Button(
                     onClick = {
                         navController.navigate(SensorAppScreen.HOME.name) {
-                            // vider la pile de navigation pour éviter l'accumulation
                             popUpTo(SensorAppScreen.HOME.name) {
                                 inclusive = true
                             }
@@ -535,7 +541,6 @@ class MainActivity : ComponentActivity() {
                 Button(
                     onClick = {
                         navController.navigate(SensorAppScreen.ORDER.name) {
-                            // vider la pile de navigation pour éviter l'accumulation
                             popUpTo(SensorAppScreen.ORDER.name) {
                                 inclusive = true
                             }
