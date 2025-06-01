@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import fr.cpe.hello.draggableList.DraggableList
 import fr.cpe.hello.model.Sensor
 import fr.cpe.hello.ui.theme.Yellow500
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val devMode: Boolean = true
@@ -436,6 +437,13 @@ class MainActivity : ComponentActivity() {
     fun DetailScreen(
         navController: NavController
     ) {
+        // On demande les valeurs toutes les 10 secondes
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(10000)
+                sendGetSensorValues()
+            }
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -447,11 +455,11 @@ class MainActivity : ComponentActivity() {
                 onClick = {
                     // Mise à jour des valeurs du capteur avec de nouvelles données
                     sensorValues = sensorValues.copy(
-                        temperature = 30.5f,  // Nouvelle température
-                        humidity = 25.3f,     // Nouvelle humidité
-                        uv = 4.2f,           // Nouvelle valeur UV
-                        luminosity = 2.8f,   // Nouvelle luminosité
-                        pressure = 15.6f     // Nouvelle pression
+                        temperature = 30.5f,
+                        humidity = 25.3f,
+                        uv = 4.2f,
+                        luminosity = 2.8f,
+                        pressure = 15.6f
                     )
                 },
                 modifier = Modifier.padding(bottom = 16.dp)
