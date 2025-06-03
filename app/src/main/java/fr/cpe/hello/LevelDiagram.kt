@@ -36,16 +36,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import fr.cpe.hello.ui.theme.DarkGradient
 
-var arcValue by mutableFloatStateOf(0f)
-
-fun updateArcValue(value: Float, maxValue: Float){
-    var newValue = value / maxValue
-    if(newValue > 1f)
-        newValue = 1f
-
-    arcValue = newValue
-}
-
 @Composable
 fun LevelScreen(state: LevelState, onClick: () -> Unit) {
     Column(
@@ -64,6 +54,8 @@ fun LevelScreen(state: LevelState, onClick: () -> Unit) {
 //            style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.width(150.dp)
         )
+
+
     }
 }
 
@@ -72,7 +64,7 @@ fun LevelIndicator(state: LevelState, onClick: () -> Unit) {
     Box(
         contentAlignment = Alignment.BottomCenter,
         modifier = Modifier
-            .width(150.dp)
+            .width(145.dp)
             .aspectRatio(1f)
     ) {
         CircularLevelIndicator(state.arcValue, 240f)

@@ -54,10 +54,16 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import fr.cpe.hello.draggableList.DraggableList
@@ -70,24 +76,48 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var udpMessageSocket: UDPMessageSocket
     private var sensorOrder: String by mutableStateOf("LTHPU")
-    private var ipAddress: String by mutableStateOf("192.168.210.23")
+    private var ipAddress: String by mutableStateOf("192.168.55.23")
     private var udpResponse: String by mutableStateOf("")
 
+    private var currentHistoryValue: String by mutableStateOf("T")
     private var currentSensor: String by mutableStateOf("FACB2D3E3BDDA177")
 //    MicroBit 1 : FACB2D3E3BDDA177
 //    MicroBit 2 : A9AB1BD844F3FC8C
 
     private var sensorValues: SensorValues by mutableStateOf(
         SensorValues(
+            reading_id = 1,
+            sensor_crouscam_id = 0,
+            timestamp = "05/06/25-09:12:17",
+            temperature = 27.3f,
+            humidity = 18.7f,
+            uv = 2.5f,
+            luminosity = 2.5f,
+            pressure = 16.1f
+        )
+    )
+
+    private var sensorValuesHistory = mutableStateListOf(
+        SensorValues(
+            reading_id = 1,
+            sensor_crouscam_id = 0,
+            timestamp = "05/06/25-09:12:17",
+            temperature = 27.3f,
+            humidity = 18.7f,
+            uv = 2.5f,
+            luminosity = 2.5f,
+            pressure = 16.1f
+        ),
+        SensorValues(
             reading_id = 0,
             sensor_crouscam_id = 0,
-            timestamp = "",
-            temperature = 22.3f,
-            humidity = 11.7f,
-            uv = 2.0f,
-            luminosity = 1.7f,
-            pressure = 10.0f
-        )
+            timestamp = "05/06/25-09:10:51",
+            temperature = 20.0f,
+            humidity = 18.0f,
+            uv = 1.0f,
+            luminosity = 2.0f,
+            pressure = 12.0f
+        ),
     )
 
     private var sensorList = mutableStateListOf(
@@ -217,6 +247,27 @@ class MainActivity : ComponentActivity() {
 
                             )
                         }
+
+                        composable(
+                            SensorAppScreen.HISTORY.name,
+                            enterTransition = {
+                                slideInVertically(
+                                    initialOffsetY = { fullHeight -> fullHeight },
+                                    animationSpec = tween(400, easing = EaseOutQuart)
+                                ) + fadeIn(tween(400))
+                            },
+                            exitTransition = {
+                                slideOutVertically(
+                                    targetOffsetY = { fullHeight -> fullHeight },
+                                    animationSpec = tween(400, easing = EaseInQuart)
+                                ) + fadeOut(tween(400))
+                            },
+                        )
+                        {
+                            HistoryScreen(
+                                navController = navController
+                            )
+                        }
                     }
                 }
             }
@@ -279,8 +330,8 @@ class MainActivity : ComponentActivity() {
 
                 if (payload != null) {
                     when (event.toString()) {
-                        "DATA_VALUES" -> updateSensorValues(payload.jsonObject)
-                        "DATA_SENSORLIST" -> updateSensorList(payload.jsonObject)
+                        "DATA_SENSOR_VALUES" -> updateSensorValues(payload.jsonObject)
+                        "DATA_SENSOR_LIST" -> updateSensorList(payload.jsonObject)
                     }
                 }else{
                     Log.e("NO_PAYLOAD", "l'objet ne contient pas de payload : \n$message")
@@ -326,6 +377,7 @@ class MainActivity : ComponentActivity() {
             sensorValues.luminosity = values.luminosity
             sensorValues.pressure = values.pressure
 
+            sensorValuesHistory.add(sensorValues)
         } catch (e: Exception) {
             Log.e("JSON_CONVERT", "Erreur lors de la validation: ${e.message}")
         }
@@ -338,21 +390,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sendSensorOrderMessage(){
-        udpMessageSocket.sendMessage(sensorOrder)
+        val s = """{"event":"DATA_SENSOR_ORDER", "payload": {"sensor_order": $sensorOrder}}"""
+        udpMessageSocket.sendMessage(s)
     }
 
-//    private fun sendMessage(){
-//        udpMessageSocket.sendMessage("getValues()")
-//    }
-
     private fun sendGetSensorList() {
-        val s = """{"event":"DATA_SENSORLIST", "payload": {}"""
+        val s = """{"event":"DATA_SENSOR_LIST", "payload": {}}"""
         udpMessageSocket.sendMessage(s)
+        Log.d("UDP_SEND", "sendGetSensorList $ipAddress")
     }
 
     private fun sendGetSensorValues() {
-        val s = """{"event":"DATA_SENSORLIST", "payload": {"crouscam_id": $currentSensor}}"""
+        val s = """{"event":"DATA_SENSOR_VALUES", "payload": {"crouscam_id": $currentSensor}}"""
         udpMessageSocket.sendMessage(s)
+        Log.d("UDP_SEND", "sendGetSensorValues")
     }
 
     data class SensorOrderList(val name: String)
@@ -360,7 +411,8 @@ class MainActivity : ComponentActivity() {
     enum class SensorAppScreen() {
         HOME,
         DETAIL,
-        ORDER
+        ORDER,
+        HISTORY
     }
 
     @Composable
@@ -371,6 +423,14 @@ class MainActivity : ComponentActivity() {
         sensorList: List<Sensor>, // Ajoutez ce paramètre
         onSensorSelected: (String) -> Unit // Ajoutez ce paramètre pour la sélection
     ) {
+        // On demande les valeurs toutes les 10 secondes
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(10000)
+                sendGetSensorList()
+
+            }
+        }
         Column(
             modifier = Modifier
                 .padding(WindowInsets.safeDrawing.asPaddingValues()),
@@ -451,87 +511,115 @@ class MainActivity : ComponentActivity() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Button(
-                onClick = {
-                    // Mise à jour des valeurs du capteur avec de nouvelles données
-                    sensorValues = sensorValues.copy(
-                        temperature = 30.5f,
-                        humidity = 25.3f,
-                        uv = 4.2f,
-                        luminosity = 2.8f,
-                        pressure = 15.6f
-                    )
-                },
-                modifier = Modifier.padding(bottom = 16.dp)
-            ) {
-                Text("Changer les valeurs")
-            }
+            // Bouton pour tester le changement de valeurs dans le serveur
+//            Button(
+//                onClick = {
+//                    // Mise à jour des valeurs du capteur avec de nouvelles données
+//                    sensorValues = sensorValues.copy(
+//                        temperature = 30.5f,
+//                        humidity = 25.3f,
+//                        uv = 4.2f,
+//                        luminosity = 2.8f,
+//                        pressure = 15.6f
+//                    )
+//                },
+//                modifier = Modifier.padding(bottom = 16.dp)
+//            ) {
+//                Text("Changer les valeurs")
+//            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                LevelScreen(
-                    LevelState(
-                        unitName = "Température",
-                        unit = "°C",
-                        value = sensorValues.temperature,
-                        maxValue = 40f,
-                        arcValue = sensorValues.temperature / 40f,
-                    )
-                ) { }
-                LevelScreen(
-                    LevelState(
-                        unitName = "Luminosité",
-                        unit = "lux",
-                        value = sensorValues.luminosity,
-                        maxValue = 5f,
-                        arcValue = sensorValues.luminosity / 5f,
-                    )
-                ) { }
+                Column(
+                    modifier = Modifier,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    LevelScreen(
+                        LevelState(
+                            unitName = "Température",
+                            unit = "°C",
+                            value = sensorValues.temperature,
+                            maxValue = 40f,
+                            arcValue = sensorValues.temperature / 40f,
+                        )
+                    ) { }
+                }
+                Column(
+                    modifier = Modifier,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    LevelScreen(
+                        LevelState(
+                            unitName = "Luminosité",
+                            unit = "lux",
+                            value = sensorValues.luminosity,
+                            maxValue = 5f,
+                            arcValue = sensorValues.luminosity / 5f,
+                        )
+                    ) { }
+                }
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                LevelScreen(
-                    LevelState(
-                        unitName = "Humidité",
-                        unit = "g/m³",
-                        value = sensorValues.humidity,
-                        maxValue = 40f,
-                        arcValue = sensorValues.humidity / 40f,
-                    )
-                ) { }
-                LevelScreen(
-                    LevelState(
-                        unitName = "Pression",
-                        unit = "Pa",
-                        value = sensorValues.pressure,
-                        maxValue = 20f,
-                        arcValue = sensorValues.pressure / 20f,
-                    )
-                ) { }
+                Column(
+                    modifier = Modifier,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    LevelScreen(
+                        LevelState(
+                            unitName = "Humidité",
+                            unit = "g/m³",
+                            value = sensorValues.humidity,
+                            maxValue = 40f,
+                            arcValue = sensorValues.humidity / 40f,
+                        )
+                    ) { }
+                }
+                Column(
+                    modifier = Modifier,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ){
+                    LevelScreen(
+                        LevelState(
+                            unitName = "Pression",
+                            unit = "Pa",
+                            value = sensorValues.pressure,
+                            maxValue = 20f,
+                            arcValue = sensorValues.pressure / 20f,
+                        )
+                    ) { }
+                }
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
             ) {
-                LevelScreen(
-                    LevelState(
-                        unitName = "UV",
-                        unit = "mW/cm²",
-                        value = sensorValues.uv,
-                        maxValue = 6f,
-                        arcValue = sensorValues.uv / 6f,
-                    )
-                ) { }
+                Column(
+                    modifier = Modifier,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ){
+                    LevelScreen(
+                        LevelState(
+                            unitName = "UV",
+                            unit = "mW/cm²",
+                            value = sensorValues.uv,
+                            maxValue = 6f,
+                            arcValue = sensorValues.uv / 6f,
+                        )
+                    ) { }
+                }
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Button(
@@ -546,6 +634,24 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Text("< Accueil")
                 }
+
+                Button(
+                    onClick = {
+                        navController.navigate(SensorAppScreen.HISTORY.name) {
+                            popUpTo(SensorAppScreen.HISTORY.name) {
+                                inclusive = true
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Historique",
+                        modifier = Modifier.size(25.dp)
+                    )
+                }
+
                 Button(
                     onClick = {
                         navController.navigate(SensorAppScreen.ORDER.name) {
@@ -612,6 +718,145 @@ class MainActivity : ComponentActivity() {
                     Text("Accueil >")
                 }
             }
+        }
+    }
+
+    @Composable
+    fun HistoryScreen(
+        navController: NavController,
+    ) {
+        Column() {
+            // Liste déroulante des valeurs historiques
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(sensorValuesHistory) { sensorValue ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                text = "Lecture #${sensorValue.reading_id}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+
+                            Text(
+                                text = "Capteur: ${sensorValue.sensor_crouscam_id}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+
+                            Text(
+                                text = "Timestamp: ${sensorValue.timestamp}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                            // Affichage des valeurs des capteurs
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    SensorValueItem("Température", "${sensorValue.temperature}°C")
+                                    SensorValueItem("Humidité", "${sensorValue.humidity} g/m³")
+                                    SensorValueItem("UV", "${sensorValue.uv} mW/cm²")
+                                }
+                                Column {
+                                    SensorValueItem("Luminosité", "${sensorValue.luminosity} lux")
+                                    SensorValueItem("Pression", "${sensorValue.pressure} Pa")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                    //.align(Alignment.End),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Button(
+                    onClick = {
+                        navController.navigate(SensorAppScreen.HOME.name) {
+                            popUpTo(SensorAppScreen.HOME.name) {
+                                inclusive = true
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                ) {
+                    Text("< Accueil")
+                }
+
+                Button(
+                    onClick = {
+                        navController.navigate(SensorAppScreen.DETAIL.name) {
+                            popUpTo(SensorAppScreen.DETAIL.name) {
+                                inclusive = true
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = "Retour detail",
+                        modifier = Modifier.size(25.dp)
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        navController.navigate(SensorAppScreen.ORDER.name) {
+                            popUpTo(SensorAppScreen.ORDER.name) {
+                                inclusive = true
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                ) {
+                    Text("Ordre >")
+                }
+            }
+//            }
+
+        }
+
+
+    }
+
+    // élément utilisé dans l'affichage de l'historique des valeurs
+    @Composable
+    fun SensorValueItem(label: String, value: String) {
+        Row(
+            modifier = Modifier
+                .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+
+        ) {
+            Text(
+                text = "$label:",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.width(80.dp)
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
