@@ -34,6 +34,9 @@ import kotlin.math.floor
 import fr.cpe.hello.model.LevelState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import fr.cpe.hello.ui.theme.Blue200
+import fr.cpe.hello.ui.theme.Blue500
+import fr.cpe.hello.ui.theme.BlueGradient
 import fr.cpe.hello.ui.theme.DarkGradient
 
 @Composable
@@ -82,7 +85,7 @@ private fun CircularLevelIndicator(value: Float, angle: Float){
 //        drawLines(value, angle)
 //        Color(0xFFFFFFFF)
         drawArcs(1f, angle, null, null, DarkGradient)
-        drawArcs(value, angle, Green200, Green500, GreenGradient)
+        drawArcs(value, angle, Blue200, Blue500, BlueGradient)
 
     }
 }
